@@ -278,16 +278,24 @@ Guarantees:
 | Web origin | `http://localhost:3000` |
 | Realm roles | `doctor`, `guardian`, `admin`, `privacy_officer`, `compliance_approver` |
 
+### Sign in with a real TideCloak account (local)
+
+```powershell
+docker compose up -d tidecloak     # TideCloak Dev on http://localhost:8080 (console: admin / password)
+npm run tidecloak:provision        # realm, client, roles, ES256 signing key, 8 demo users
+```
+
+Open <http://localhost:3000/auth/login> (or **🔐 Sign in with TideCloak** in the header) and sign in with any persona username, for example `demo-doctor-a`, and the local password `demo1234`. The browser stores the access token in the `kcToken` cookie; every API call is then verified against the realm, and the header shows *Signed in with TideCloak*. Sign out on `/auth/login` to return to the persona switcher.
+
 > [!NOTE]
-> Simulated subjects are persona usernames (for example `demo-doctor-a`). Real TideCloak subjects are UUIDs. Before switching to real logins, map each real `sub` to `app_users.tide_subject` in the seed. Without that mapping, real users fail closed because they have no relationship to the demo child.
+> A verified realm user whose username matches a seeded persona acts as that seeded user, because the synthetic seed keys relationships by persona username. The real `sub` UUID is kept in the claims. Any other realm user fails closed, since they have no relationship to the demo child. `@tidecloak/verify` accepts only ES256/ES384/ES512/EdDSA tokens, which is why the provisioning script adds an ES256 key. Completing Tide account enrollment later switches the realm to Tide's EdDSA key.
 
 ## Running locally
 
 ### Prerequisites
 
 - Node.js **24 or newer** and npm
-- Docker Desktop, for PostgreSQL (optional; the app falls back to memory)
-- A TideCloak Dev realm for real OIDC (optional)
+- Docker Desktop, for PostgreSQL and TideCloak Dev (optional; the app falls back to memory and simulated identities)
 
 ### Option A: Prisma + PostgreSQL (recommended)
 
@@ -365,7 +373,8 @@ A build is **not demo-ready** if any test reports a `policy bypass` or a `scope 
 | Role-scoped, append-only audit | ✅ Done at the application boundary |
 | Persistence with automatic in-memory fallback | ✅ Done |
 | Simulated TideCloak sign-in, roles and access checks | ✅ Done |
-| Real TideCloak login (account enrollment / license) | ⏳ Blocked: `TIDE-001` |
+| Real OIDC sign-in against local TideCloak Dev | ✅ Done (`npm run tidecloak:provision`) |
+| Tide account enrollment / license (Tide EdDSA keys) | ⏳ Blocked: `TIDE-001` |
 | Forseti policy contract and QEA governed writes | ⏳ Planned: `BE-005` |
 | OpenAPI contract | ⏳ Planned: `BE-006` |
 
@@ -399,7 +408,8 @@ docs/                   Product, architecture, database and delivery documents
 | Symptom | Likely cause and fix |
 | --- | --- |
 | Every API call returns `401 UNAUTHENTICATED` | No persona selected. Use the account switcher, or send `x-demo-persona: demo-doctor-a` |
-| A real login is rejected but personas work | The token is invalid, or its `sub` is not mapped to the seed (see the note under [Identity](#identity-tidecloak-and-demo-simulation)) |
+| A real login is rejected but personas work | Run `npm run tidecloak:provision`, and sign in with a persona username; other usernames have no seeded relationships |
+| `/auth/login` keeps showing *Connecting to TideCloak…* | TideCloak is not running: `docker compose up -d tidecloak` |
 | Data disappears after a restart | The app is running on the in-memory store. Start PostgreSQL, migrate and seed |
 | `/demo/*` returns `404` | `NODE_ENV=production` or `GUARDIANGATE_DEMO_AUTH=off` |
 | `/health` reports `degraded` | TideCloak is not reachable at `TIDECLOAK_URL`. This is expected when running without TideCloak |

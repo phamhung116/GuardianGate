@@ -153,6 +153,8 @@ export default function GuardianGateApp() {
 
   const [bannerMessage, setBannerMessage] = useState<{ text: string; type: "success" | "error" | "info" | "warning" } | null>(null);
   const [loading, setLoading] = useState(false);
+  // Set when the browser holds a real TideCloak token; the server then ignores the persona switcher.
+  const [realIdentity, setRealIdentity] = useState<{ username: string | null; roles: string[] } | null>(null);
 
   const showBanner = (text: string, type: "success" | "error" | "info" | "warning" = "info") => {
     setBannerMessage({ text, type });
@@ -238,6 +240,13 @@ export default function GuardianGateApp() {
   useEffect(() => {
     refreshData();
   }, [refreshData, activePersona]);
+
+  useEffect(() => {
+    fetch("/api/v1/me", { cache: "no-store" })
+      .then((res) => res.json())
+      .then((body) => setRealIdentity(body.success && !body.data.simulated ? body.data : null))
+      .catch(() => setRealIdentity(null));
+  }, []);
 
   // Actions
   const handleCreateOrdinaryRequest = async (e: React.FormEvent) => {
@@ -474,8 +483,22 @@ export default function GuardianGateApp() {
       {/* Active Persona Banner */}
       <div className="active-actor-banner">
         <div className="active-actor-info">
-          <span>Signed in as <strong>{activePersona.displayName}</strong> (ID: <code>{activePersona.username}</code>)</span>
-          <span className="badge badge-emerald">Role: {activePersona.roles.join(", ")}</span>
+          {realIdentity ? (
+            <>
+              <span>
+                Signed in with <strong>TideCloak</strong> as <code>{realIdentity.username}</code>. The persona switcher is
+                ignored until you <a href="/auth/login">sign out</a>.
+              </span>
+              <span className="badge badge-emerald">
+                Role: {realIdentity.roles.filter((r) => !r.startsWith("default-roles") && r !== "offline_access" && r !== "uma_authorization").join(", ")}
+              </span>
+            </>
+          ) : (
+            <>
+              <span>Signed in as <strong>{activePersona.displayName}</strong> (ID: <code>{activePersona.username}</code>)</span>
+              <span className="badge badge-emerald">Role: {activePersona.roles.join(", ")}</span>
+            </>
+          )}
         </div>
         <div className="active-actor-actions">
           <a className="btn btn-sm btn-secondary" href="/auth/login" title="Sign in with a real TideCloak account">

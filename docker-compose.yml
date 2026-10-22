@@ -32,7 +32,8 @@ services:
     ports:
       - "8080:8080"
     volumes:
-      - guardiangate-tidecloak-data:/opt/keycloak/data/h2
+      # Mount the image's data dir (owned by the keycloak user) so the H2 store is writable.
+      - guardiangate-tidecloak-data:/opt/keycloak/data
 
 volumes:
   guardiangate-postgres-data:

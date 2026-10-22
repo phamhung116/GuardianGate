@@ -16,7 +16,8 @@
     "test:watch": "vitest",
     "prisma:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
-    "db:seed": "prisma db seed"
+    "db:seed": "prisma db seed",
+    "tidecloak:provision": "node scripts/provision-tidecloak.mjs"
   },
   "dependencies": {
     "@prisma/client": "6.12.0",

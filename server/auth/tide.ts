@@ -81,7 +81,11 @@ export async function verifyActor(
     // Loaded lazily so simulated sessions (and Node test runs) never depend on the SDK bundle.
     const { verifyTideCloakToken } = await import("@tidecloak/verify");
     const claims = (await verifyTideCloakToken(adapter, token, requiredRoles)) as TideClaims | null;
-    return claims ? toActor(claims) : null;
+    const actor = claims ? toActor(claims) : null;
+    // The synthetic seed keys relationships by persona username (`app_users.tide_subject`). A
+    // verified realm user with that username acts as the seeded user; the real `sub` stays in claims.
+    if (actor?.username && findPersona(actor.username)) return { ...actor, subject: actor.username };
+    return actor;
   } catch {
     return null;
   }
