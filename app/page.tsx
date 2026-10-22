@@ -478,6 +478,9 @@ export default function GuardianGateApp() {
           <span className="badge badge-emerald">Role: {activePersona.roles.join(", ")}</span>
         </div>
         <div className="active-actor-actions">
+          <a className="btn btn-sm btn-secondary" href="/auth/login" title="Sign in with a real TideCloak account">
+            🔐 Sign in with TideCloak
+          </a>
           <button className="btn btn-sm btn-secondary" onClick={handleAdminBypassTest} title="Attempt to open a pediatric record as an administrator">
             🛡️ Test Admin Bypass
           </button>
