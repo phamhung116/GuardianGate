@@ -38,8 +38,8 @@ function expectDeniedWithoutRecord(
   if (result.ok) throw new Error("Expected a denied policy result");
   expect(result.reason).toBe(reason);
   expect(result).not.toHaveProperty("data");
-  expect(JSON.stringify(result)).not.toContain("Dị ứng penicillin");
-  expect(JSON.stringify(result)).not.toContain("Viêm họng nhẹ");
+  expect(JSON.stringify(result)).not.toContain("Penicillin allergy");
+  expect(JSON.stringify(result)).not.toContain("Mild pharyngitis");
 }
 
 describe("GuardianGate minimum demo acceptance suite", () => {
@@ -74,7 +74,7 @@ describe("GuardianGate minimum demo acceptance suite", () => {
   it("3 · scope leak: one verified guardian unlocks only the approved ordinary group", () => {
     const approved = decideRequest(actor("demo-guardian-a"), DEMO_IDS.ordinaryRequest, {
       decision: "approved",
-      note: "Phê duyệt cho ca khám hiện tại",
+      note: "Approved for active consultation",
     });
     expect(approved).toMatchObject({ ok: true, data: { status: "approved", recordGroups: ["summary"] } });
 
@@ -93,8 +93,8 @@ describe("GuardianGate minimum demo acceptance suite", () => {
     const guardianA = actor("demo-guardian-a");
     const created = createExternalShare(guardianA, {
       childId: DEMO_IDS.child,
-      recipientName: "Bệnh viện Đối tác (demo)",
-      purpose: "Tham vấn chuyên khoa",
+      recipientName: "Partner Hospital (demo)",
+      purpose: "Specialist consultation",
       recordGroups: ["diagnostic"],
       durationMinutes: 45,
     });
@@ -116,8 +116,8 @@ describe("GuardianGate minimum demo acceptance suite", () => {
       ok: true,
       data: {
         status: "approved",
-        recipientName: "Bệnh viện Đối tác (demo)",
-        purpose: "Tham vấn chuyên khoa",
+        recipientName: "Partner Hospital (demo)",
+        purpose: "Specialist consultation",
         recordGroups: ["diagnostic"],
       },
     });
@@ -134,7 +134,7 @@ describe("GuardianGate minimum demo acceptance suite", () => {
     const doctorA = actor("demo-doctor-a");
     const created = createEmergencyRequest(doctorA, {
       childId: DEMO_IDS.child,
-      reason: "Phản ứng dị ứng cấp (demo)",
+      reason: "Acute allergic reaction (demo)",
     });
     expect(created.ok).toBe(true);
     if (!created.ok) throw new Error("Expected an emergency request");
@@ -148,7 +148,7 @@ describe("GuardianGate minimum demo acceptance suite", () => {
 
     const confirmed = decideRequest(actor("demo-doctor-b"), created.data.id, {
       decision: "approved",
-      note: "Xác nhận độc lập",
+      note: "Independent confirmation",
     });
     expect(confirmed).toMatchObject({
       ok: true,
@@ -182,7 +182,7 @@ describe("GuardianGate minimum demo acceptance suite", () => {
     const valid = createPolicyProposal(admin, {
       changeType: "access_duration",
       proposedValue: { ordinaryMaxMinutes: 180 },
-      rationale: "Giảm thời hạn grant thường",
+      rationale: "Reduce ordinary grant duration",
     });
     expect(valid.ok).toBe(true);
     if (!valid.ok) throw new Error("Expected a valid proposal");
@@ -214,7 +214,7 @@ describe("GuardianGate minimum demo acceptance suite", () => {
 
     resetState();
     expect(decideRequest(guardian, DEMO_IDS.ordinaryRequest, { decision: "approved" }).ok).toBe(true);
-    expect(revokeRequest(guardian, DEMO_IDS.ordinaryRequest, { note: "Giám hộ thu hồi" }).ok).toBe(true);
+    expect(revokeRequest(guardian, DEMO_IDS.ordinaryRequest, { note: "Guardian revoked" }).ok).toBe(true);
     expectDeniedWithoutRecord(readChildRecord(doctor, DEMO_IDS.child), "revoked");
     expect(auditEvents().some((event) => event.eventType === "request_revoked")).toBe(true);
   });
@@ -240,8 +240,8 @@ describe("GuardianGate minimum demo acceptance suite", () => {
     expect(adminLog).toMatchObject({ ok: true, data: { scope: "admin_technical" } });
     if (adminLog.ok) {
       expect(adminLog.data.events.every((event) => event.childId === null)).toBe(true);
-      expect(JSON.stringify(adminLog.data.events)).not.toContain("Dị ứng penicillin");
-      expect(JSON.stringify(adminLog.data.events)).not.toContain("Khám và điều trị trong ca đang hoạt động");
+      expect(JSON.stringify(adminLog.data.events)).not.toContain("Penicillin allergy");
+      expect(JSON.stringify(adminLog.data.events)).not.toContain("Treatment in active consultation");
     }
   });
 });
