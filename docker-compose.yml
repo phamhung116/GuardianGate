@@ -19,5 +19,21 @@ services:
       timeout: 3s
       retries: 20
 
+  # TideCloak Dev for local OIDC. The admin console is http://localhost:8080 (local demo
+  # credentials only). Realm `guardiangate` and client `guardiangate-web` are provisioned in the
+  # console and the Tide account enrollment is completed in the browser.
+  tidecloak:
+    image: tideorg/tidecloak-dev:latest
+    container_name: guardiangate-tidecloak
+    restart: unless-stopped
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: admin
+      KC_BOOTSTRAP_ADMIN_PASSWORD: password
+    ports:
+      - "8080:8080"
+    volumes:
+      - guardiangate-tidecloak-data:/opt/keycloak/data/h2
+
 volumes:
   guardiangate-postgres-data:
+  guardiangate-tidecloak-data:
