@@ -8,7 +8,8 @@ const envSchema = z.object({
   TIDECLOAK_URL: z.string().url().default("http://localhost:8080"),
   TIDECLOAK_REALM: z.string().min(1).default("guardiangate"),
   TIDECLOAK_CLIENT_ID: z.string().min(1).default("guardiangate-web"),
-  TIDE_POLICY_CONTRACT_ID: z.string().min(1).optional(),
+  // Empty in .env.example until BE-005 deploys the Forseti contract.
+  TIDE_POLICY_CONTRACT_ID: z.preprocess((value) => (value === "" ? undefined : value), z.string().min(1).optional()),
 });
 
 export type AppEnv = z.infer<typeof envSchema>;
