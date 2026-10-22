@@ -7,5 +7,5 @@ export default function AuthRedirectPage() {
     window.location.replace("/");
   }, []);
 
-  return <p>Đang hoàn tất phiên đăng nhập…</p>;
+  return <p>Completing authentication session...</p>;
 }
