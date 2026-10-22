@@ -1,0 +1,315 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum ConsultationStatus {
+  active
+  completed
+  cancelled
+
+  @@map("consultation_status")
+}
+
+enum AccessRequestKind {
+  ordinary
+  external_share
+  emergency
+
+  @@map("access_request_kind")
+}
+
+enum AccessRequestStatus {
+  pending
+  approved
+  rejected
+  expired
+  revoked
+
+  @@map("access_request_status")
+}
+
+enum RecordGroup {
+  summary
+  encounter
+  diagnostic
+  sensitive
+
+  @@map("record_group")
+}
+
+enum ApprovalDecisionValue {
+  approved
+  rejected
+
+  @@map("approval_decision")
+}
+
+enum PolicyChangeType {
+  access_duration
+  emergency_window
+  data_scope
+  governance_rule
+
+  @@map("policy_change_type")
+}
+
+enum PolicyProposalStatus {
+  proposed
+  approved
+  rejected
+  superseded
+
+  @@map("policy_proposal_status")
+}
+
+enum AuditEventType {
+  request_created
+  approval_recorded
+  access_granted
+  access_denied
+  record_accessed
+  request_expired
+  request_revoked
+  external_share_released
+  emergency_activated
+  emergency_review_required
+  policy_proposed
+  policy_approved
+  policy_rejected
+  policy_activated
+
+  @@map("audit_event_type")
+}
+
+model AppUser {
+  id                      String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tideSubject             String                   @unique @map("tide_subject")
+  displayName             String                   @map("display_name")
+  createdAt               DateTime                 @default(now()) @map("created_at") @db.Timestamptz(6)
+  guardianLinks           GuardianLink[]
+  consultationAssignments ConsultationClinician[]
+  accessRequests          AccessRequest[]          @relation("RequestCreator")
+  approvalDecisions       ApprovalDecision[]       @relation("AccessApprover")
+  policyProposals         PolicyProposal[]         @relation("PolicyProposer")
+  policyApprovals         PolicyProposalApproval[] @relation("PolicyApprover")
+  auditEvents             AuditEvent[]             @relation("AuditActor")
+
+  @@map("app_users")
+}
+
+model Child {
+  id                String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  demoIdentifier    String             @unique @map("demo_identifier")
+  displayName       String             @map("display_name")
+  dateOfBirth       DateTime           @map("date_of_birth") @db.Date
+  createdAt         DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
+  guardianLinks     GuardianLink[]
+  clinicalSummary   ClinicalSummary?
+  encounterRecords  EncounterRecord[]
+  diagnosticResults DiagnosticResult[]
+  sensitiveRecords  SensitiveRecord[]
+  consultations     Consultation[]
+  accessRequests    AccessRequest[]
+  auditEvents       AuditEvent[]
+
+  @@map("children")
+}
+
+model GuardianLink {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  childId        String   @map("child_id") @db.Uuid
+  guardianUserId String   @map("guardian_user_id") @db.Uuid
+  verified       Boolean  @default(false)
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  child          Child    @relation(fields: [childId], references: [id], onDelete: Restrict)
+  guardian       AppUser  @relation(fields: [guardianUserId], references: [id], onDelete: Restrict)
+
+  @@unique([childId, guardianUserId])
+  @@index([guardianUserId, childId])
+  @@map("guardian_links")
+}
+
+model ClinicalSummary {
+  id                 String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  childId            String   @unique @map("child_id") @db.Uuid
+  allergies          String
+  currentMedications String   @map("current_medications")
+  emergencyNotes     String   @map("emergency_notes")
+  updatedAt          DateTime @default(now()) @map("updated_at") @db.Timestamptz(6)
+  child              Child    @relation(fields: [childId], references: [id], onDelete: Restrict)
+
+  @@map("clinical_summaries")
+}
+
+model EncounterRecord {
+  id             String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  childId        String        @map("child_id") @db.Uuid
+  consultationId String?       @map("consultation_id") @db.Uuid
+  diagnosis      String
+  clinicianNote  String        @map("clinician_note")
+  recordedAt     DateTime      @map("recorded_at") @db.Timestamptz(6)
+  child          Child         @relation(fields: [childId], references: [id], onDelete: Restrict)
+  consultation   Consultation? @relation(fields: [consultationId], references: [id], onDelete: SetNull)
+
+  @@index([childId, recordedAt(sort: Desc)])
+  @@map("encounter_records")
+}
+
+model DiagnosticResult {
+  id             String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  childId        String        @map("child_id") @db.Uuid
+  consultationId String?       @map("consultation_id") @db.Uuid
+  resultType     String        @map("result_type")
+  resultSummary  String        @map("result_summary")
+  recordedAt     DateTime      @map("recorded_at") @db.Timestamptz(6)
+  child          Child         @relation(fields: [childId], references: [id], onDelete: Restrict)
+  consultation   Consultation? @relation(fields: [consultationId], references: [id], onDelete: SetNull)
+
+  @@index([childId, recordedAt(sort: Desc)])
+  @@map("diagnostic_results")
+}
+
+model SensitiveRecord {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  childId        String   @map("child_id") @db.Uuid
+  classification String
+  content        String
+  recordedAt     DateTime @map("recorded_at") @db.Timestamptz(6)
+  child          Child    @relation(fields: [childId], references: [id], onDelete: Restrict)
+
+  @@index([childId, recordedAt(sort: Desc)])
+  @@map("sensitive_records")
+}
+
+model Consultation {
+  id             String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  childId        String                  @map("child_id") @db.Uuid
+  status         ConsultationStatus      @default(active)
+  startsAt       DateTime                @map("starts_at") @db.Timestamptz(6)
+  endsAt         DateTime?               @map("ends_at") @db.Timestamptz(6)
+  child          Child                   @relation(fields: [childId], references: [id], onDelete: Restrict)
+  clinicians     ConsultationClinician[]
+  accessRequests AccessRequest[]
+  encounters     EncounterRecord[]
+  diagnostics    DiagnosticResult[]
+
+  @@index([childId, status, startsAt(sort: Desc)])
+  @@map("consultations")
+}
+
+model ConsultationClinician {
+  consultationId  String       @map("consultation_id") @db.Uuid
+  clinicianUserId String       @map("clinician_user_id") @db.Uuid
+  assignedAt      DateTime     @default(now()) @map("assigned_at") @db.Timestamptz(6)
+  consultation    Consultation @relation(fields: [consultationId], references: [id], onDelete: Restrict)
+  clinician       AppUser      @relation(fields: [clinicianUserId], references: [id], onDelete: Restrict)
+
+  @@id([consultationId, clinicianUserId])
+  @@index([clinicianUserId, consultationId])
+  @@map("consultation_clinicians")
+}
+
+model AccessRequest {
+  id                 String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  requestKind        AccessRequestKind    @map("request_kind")
+  childId            String               @map("child_id") @db.Uuid
+  requesterUserId    String               @map("requester_user_id") @db.Uuid
+  consultationId     String?              @map("consultation_id") @db.Uuid
+  purpose            String
+  recipientName      String?              @map("recipient_name")
+  emergencyReason    String?              @map("emergency_reason")
+  status             AccessRequestStatus  @default(pending)
+  requestedExpiresAt DateTime             @map("requested_expires_at") @db.Timestamptz(6)
+  approvedAt         DateTime?            @map("approved_at") @db.Timestamptz(6)
+  revokedAt          DateTime?            @map("revoked_at") @db.Timestamptz(6)
+  createdAt          DateTime             @default(now()) @map("created_at") @db.Timestamptz(6)
+  child              Child                @relation(fields: [childId], references: [id], onDelete: Restrict)
+  requester          AppUser              @relation("RequestCreator", fields: [requesterUserId], references: [id], onDelete: Restrict)
+  consultation       Consultation?        @relation(fields: [consultationId], references: [id], onDelete: Restrict)
+  scopes             AccessRequestScope[]
+  decisions          ApprovalDecision[]
+  auditEvents        AuditEvent[]
+
+  @@index([childId, status, createdAt(sort: Desc)])
+  @@index([requesterUserId, createdAt(sort: Desc)])
+  @@map("access_requests")
+}
+
+model AccessRequestScope {
+  accessRequestId String        @map("access_request_id") @db.Uuid
+  recordGroup     RecordGroup   @map("record_group")
+  accessRequest   AccessRequest @relation(fields: [accessRequestId], references: [id], onDelete: Cascade)
+
+  @@id([accessRequestId, recordGroup])
+  @@map("access_request_scopes")
+}
+
+model ApprovalDecision {
+  id              String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  accessRequestId String                @map("access_request_id") @db.Uuid
+  approverUserId  String                @map("approver_user_id") @db.Uuid
+  decision        ApprovalDecisionValue
+  decidedAt       DateTime              @default(now()) @map("decided_at") @db.Timestamptz(6)
+  note            String?
+  accessRequest   AccessRequest         @relation(fields: [accessRequestId], references: [id], onDelete: Restrict)
+  approver        AppUser               @relation("AccessApprover", fields: [approverUserId], references: [id], onDelete: Restrict)
+
+  @@unique([accessRequestId, approverUserId])
+  @@index([approverUserId, decidedAt(sort: Desc)])
+  @@map("approval_decisions")
+}
+
+model PolicyProposal {
+  id               String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  proposedByUserId String                   @map("proposed_by_user_id") @db.Uuid
+  changeType       PolicyChangeType         @map("change_type")
+  proposedValue    Json                     @map("proposed_value") @db.JsonB
+  status           PolicyProposalStatus     @default(proposed)
+  createdAt        DateTime                 @default(now()) @map("created_at") @db.Timestamptz(6)
+  effectiveAt      DateTime?                @map("effective_at") @db.Timestamptz(6)
+  proposer         AppUser                  @relation("PolicyProposer", fields: [proposedByUserId], references: [id], onDelete: Restrict)
+  approvals        PolicyProposalApproval[]
+  auditEvents      AuditEvent[]
+
+  @@map("policy_proposals")
+}
+
+model PolicyProposalApproval {
+  id               String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  policyProposalId String                @map("policy_proposal_id") @db.Uuid
+  approverUserId   String                @map("approver_user_id") @db.Uuid
+  decision         ApprovalDecisionValue
+  decidedAt        DateTime              @default(now()) @map("decided_at") @db.Timestamptz(6)
+  policyProposal   PolicyProposal        @relation(fields: [policyProposalId], references: [id], onDelete: Restrict)
+  approver         AppUser               @relation("PolicyApprover", fields: [approverUserId], references: [id], onDelete: Restrict)
+
+  @@unique([policyProposalId, approverUserId])
+  @@index([approverUserId, decidedAt(sort: Desc)])
+  @@map("policy_proposal_approvals")
+}
+
+model AuditEvent {
+  id               String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  eventType        AuditEventType  @map("event_type")
+  actorUserId      String?         @map("actor_user_id") @db.Uuid
+  childId          String?         @map("child_id") @db.Uuid
+  accessRequestId  String?         @map("access_request_id") @db.Uuid
+  policyProposalId String?         @map("policy_proposal_id") @db.Uuid
+  recordGroups     RecordGroup[]   @default([]) @map("record_groups")
+  occurredAt       DateTime        @default(now()) @map("occurred_at") @db.Timestamptz(6)
+  detail           Json            @default("{}") @db.JsonB
+  actor            AppUser?        @relation("AuditActor", fields: [actorUserId], references: [id], onDelete: Restrict)
+  child            Child?          @relation(fields: [childId], references: [id], onDelete: Restrict)
+  accessRequest    AccessRequest?  @relation(fields: [accessRequestId], references: [id], onDelete: Restrict)
+  policyProposal   PolicyProposal? @relation(fields: [policyProposalId], references: [id], onDelete: Restrict)
+
+  @@index([childId, occurredAt(sort: Desc)])
+  @@index([accessRequestId, occurredAt(sort: Desc)])
+  @@index([policyProposalId, occurredAt(sort: Desc)])
+  @@map("audit_events")
+}

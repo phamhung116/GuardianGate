@@ -1,0 +1,23 @@
+name: guardiangate
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: guardiangate-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: guardiangate
+      POSTGRES_USER: guardiangate
+      POSTGRES_PASSWORD: guardiangate
+    ports:
+      - "5434:5432"
+    volumes:
+      - guardiangate-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U guardiangate -d guardiangate"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+volumes:
+  guardiangate-postgres-data:
